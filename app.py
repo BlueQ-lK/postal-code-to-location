@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Path, APIRouter
+from fastapi import FastAPI, HTTPException, Path, APIRouter, Header, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 import pandas as pd
 import numpy as np
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Load RapidAPI proxy secret
+RAPIDAPI_SECRET = os.getenv("RAPIDAPI_SECRET", "")
+
+def verify_rapidapi_proxy_secret(x_rapidapi_proxy_secret: str = Header(None)):
+    if x_rapidapi_proxy_secret != RAPIDAPI_SECRET:
+        raise HTTPException(status_code=403, detail="Access denied. Use RapidAPI.")
 
 # Pydantic models
 class PostalCodeRequest(BaseModel):
@@ -93,7 +101,7 @@ def process_result(result, code, country):
 router = APIRouter(prefix="/v1")
 
 @router.get("/location/{country_code}/{postal_code}")
-async def get_location(country_code: str = Path(...), postal_code: str = Path(...)):
+async def get_location(country_code: str = Path(...), postal_code: str = Path(...), _: None = Depends(verify_rapidapi_proxy_secret)):
     if not validate_country_code(country_code):
         return {"success": False, "error": "Invalid country code", "data": None}
     if not validate_postal_code(postal_code, country_code):
@@ -108,11 +116,11 @@ async def get_location(country_code: str = Path(...), postal_code: str = Path(..
     return {"success": True, "data": data}
 
 @router.post("/location")
-async def get_location_post(req: PostalCodeRequest):
+async def get_location_post(req: PostalCodeRequest, _: None = Depends(verify_rapidapi_proxy_secret)):
     return await get_location(req.country_code, req.postal_code)
 
 @router.get("/country")
-async def get_supported_countries():
+async def get_supported_countries(_: None = Depends(verify_rapidapi_proxy_secret)):
     supported_countries = {
         'AD': 'Andorra', 'AR': 'Argentina', 'AS': 'American Samoa', 'AT': 'Austria',
         'AU': 'Australia', 'BD': 'Bangladesh', 'BE': 'Belgium', 'BG': 'Bulgaria',
