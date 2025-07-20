@@ -27,7 +27,7 @@ app = FastAPI(
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Open for all domains
+    allow_origins=["https://*.rapidapi.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
